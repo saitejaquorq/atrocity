@@ -2,6 +2,354 @@
 openapi: 3.1.0
 info:
   title: atrocity
-  version: architecture-v0
+  version: architecture-v1
   description: Designed API from the approved architecture (not extracted from code).
-paths: {}
+paths:
+  /admin/games:
+    get:
+      summary: Admin overview list of all curated games with key fields and edit links;
+        empty state when none.
+      description: Admin overview list of all curated games with key fields and edit
+        links; empty state when none.
+      operationId: get_admin_games
+      parameters: []
+      responses:
+        '200':
+          description: '[{id, title, release_display, publisher}]'
+      security:
+      - bearerAuth: []
+    post:
+      summary: Create a game record manually; title required.
+      description: Create a game record manually; title required.
+      operationId: post_admin_games
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              description: '{title, platforms, genres, publisher, developer, release_precision,
+                release_date|release_year|release_quarter, description}'
+      responses:
+        '200':
+          description: 201 {id} or 422 validation error
+      security:
+      - bearerAuth: []
+  /admin/games/{id}:
+    patch:
+      summary: Edit any field of a game (manual or imported); edited fields are marked
+        as overrides.
+      description: Edit any field of a game (manual or imported); edited fields are
+        marked as overrides.
+      operationId: patch_admin_games_id
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              description: '{partial fields}'
+      responses:
+        '200':
+          description: 200 updated record
+      security:
+      - bearerAuth: []
+    delete:
+      summary: Remove a game record after confirmation so it disappears from public
+        and admin views.
+      description: Remove a game record after confirmation so it disappears from public
+        and admin views.
+      operationId: delete_admin_games_id
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: '204'
+      security:
+      - bearerAuth: []
+  /admin/games/{id}/cover:
+    post:
+      summary: Upload a cover image; stored in S3 and referenced by object key, served
+        via CloudFront.
+      description: Upload a cover image; stored in S3 and referenced by object key,
+        served via CloudFront.
+      operationId: post_admin_games_id_cover
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              description: multipart/form-data file
+      responses:
+        '200':
+          description: 200 {cover_url}
+      security:
+      - bearerAuth: []
+  /admin/igdb/import:
+    post:
+      summary: Import a chosen IGDB result into a pre-filled game record, preserving
+        existing admin overrides; no partial record on fai
+      description: Import a chosen IGDB result into a pre-filled game record, preserving
+        existing admin overrides; no partial record on failure.
+      operationId: post_admin_igdb_import
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              description: '{igdb_id}'
+      responses:
+        '200':
+          description: 200 imported record or clean error
+      security:
+      - bearerAuth: []
+  /admin/igdb/search:
+    get:
+      summary: Search IGDB by title; clear error if credentials missing/invalid or
+        service unreachable.
+      description: Search IGDB by title; clear error if credentials missing/invalid
+        or service unreachable.
+      operationId: get_admin_igdb_search
+      parameters: []
+      responses:
+        '200':
+          description: '[{igdb_id, title, year, cover_url}] or error'
+      security:
+      - bearerAuth: []
+  /auth/sign-in:
+    post:
+      summary: Authenticate an admin by email and password and return an opaque session
+        token in the body. Generic error on failure.
+      description: Authenticate an admin by email and password and return an opaque
+        session token in the body. Generic error on failure.
+      operationId: post_auth_sign_in
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              description: '{email, password}'
+      responses:
+        '200':
+          description: '{token, expires_at} or 401 generic error'
+  /auth/sign-out:
+    post:
+      summary: Revoke the current session token server-side.
+      description: Revoke the current session token server-side.
+      operationId: post_auth_sign_out
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              description: 'Authorization: Bearer <token>'
+      responses:
+        '200':
+          description: '204'
+      security:
+      - bearerAuth: []
+  /filters:
+    get:
+      summary: Available platform/genre/publisher facets (optionally scoped by year)
+        for building filter controls.
+      description: Available platform/genre/publisher facets (optionally scoped by
+        year) for building filter controls.
+      operationId: get_filters
+      parameters: []
+      responses:
+        '200':
+          description: '{platforms: [], genres: [], publishers: []}'
+  /games/{id}:
+    get:
+      summary: Game detail with platforms, genres, publisher/developer, flexible release
+        date and description; 404 if removed/absent.
+      description: Game detail with platforms, genres, publisher/developer, flexible
+        release date and description; 404 if removed/absent.
+      operationId: get_games_id
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: '{id, title, cover_url, platforms, genres, publisher, developer,
+            release_display, description}'
+  /years:
+    get:
+      summary: List years that contain curated games for cross-year navigation.
+      description: List years that contain curated games for cross-year navigation.
+      operationId: get_years
+      parameters: []
+      responses:
+        '200':
+          description: '[{year, game_count}]'
+  /years/{year}/games:
+    get:
+      summary: List games in a year with optional platform/genre/publisher filters
+        and date sort; drives the SSR roundup.
+      description: List games in a year with optional platform/genre/publisher filters
+        and date sort; drives the SSR roundup.
+      operationId: get_years_year_games
+      parameters:
+      - name: year
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: '[{id, title, cover_url, release_display, release_sort_key}]'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    games:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        publisher:
+          type: string
+        developer:
+          type: string
+        cover_image_key:
+          type: string
+        release_precision:
+          type: string
+        release_date:
+          type: string
+          format: date
+        release_year:
+          type: integer
+        release_quarter:
+          type: string
+        source:
+          type: string
+        igdb_id:
+          type: string
+        overridden_fields:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - title
+      - release_precision
+      - source
+      - overridden_fields
+      - created_at
+      - updated_at
+    platforms:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+      - id
+      - name
+    genres:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+      - id
+      - name
+    game_platforms:
+      type: object
+      properties:
+        game_id:
+          type: string
+          format: uuid
+        platform_id:
+          type: string
+          format: uuid
+      required:
+      - game_id
+      - platform_id
+    game_genres:
+      type: object
+      properties:
+        game_id:
+          type: string
+          format: uuid
+        genre_id:
+          type: string
+          format: uuid
+      required:
+      - game_id
+      - genre_id
+    admins:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        password_hash:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - id
+      - email
+      - password_hash
+      - created_at
+    sessions:
+      type: object
+      properties:
+        token:
+          type: string
+        admin_id:
+          type: string
+          format: uuid
+        expires_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - token
+      - admin_id
+      - expires_at
+      - created_at
